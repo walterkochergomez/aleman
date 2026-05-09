@@ -247,7 +247,7 @@
     display: flex;
     justify-content: center;
     gap: 20px;
-    margin-bottom: 24px;
+    margin-bottom: 12px;
     font-family: 'DM Mono', monospace;
     font-size: 13px;
   }
@@ -256,6 +256,20 @@
   .stat-new { color: var(--blue); }
   .stat-learn { color: var(--red); }
   .stat-review { color: var(--green); }
+
+  .btn-reset {
+    display: block;
+    margin: 0 auto 24px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 11px;
+    text-decoration: underline;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: color 0.2s;
+  }
+  .btn-reset:hover { color: var(--red); }
 
   .flashcard-container {
     perspective: 1000px;
@@ -477,7 +491,8 @@
         <div class="card">
           <div class="card-label">Números clave</div>
           <div class="pills">
-            <span class="pill">eins — zehn</span>
+            <span class="pill">eins <span class="sep">•</span> 1</span>
+            <span class="pill">zehn <span class="sep">•</span> 10</span>
             <span class="pill">zwanzig <span class="sep">•</span> 20</span>
             <span class="pill">hundert <span class="sep">•</span> 100</span>
             <span class="pill">tausend <span class="sep">•</span> 1000</span>
@@ -814,6 +829,8 @@
       <div class="fc-stat stat-learn"><span id="verb-stat-learn">0</span><span>Aprendiendo</span></div>
       <div class="fc-stat stat-review"><span id="verb-stat-review">0</span><span>Repasar</span></div>
     </div>
+    
+    <button class="btn-reset" onclick="resetProgress('verb')">↻ Reiniciar progreso de verbos</button>
 
     <div id="verb-fc-area">
       <div class="flashcard-container" onclick="flipCard('verb')">
@@ -855,6 +872,8 @@
       <div class="fc-stat stat-learn"><span id="word-stat-learn">0</span><span>Aprendiendo</span></div>
       <div class="fc-stat stat-review"><span id="word-stat-review">0</span><span>Repasar</span></div>
     </div>
+    
+    <button class="btn-reset" onclick="resetProgress('word')">↻ Reiniciar progreso de palabras</button>
 
     <div id="word-fc-area">
       <div class="flashcard-container" onclick="flipCard('word')">
@@ -936,6 +955,14 @@ function getProgress(type) {
 
 function saveProgress(type, data) {
   localStorage.setItem(`srs_${type}`, JSON.stringify(data));
+}
+
+// Función para reiniciar el progreso de un mazo
+function resetProgress(type) {
+  if(confirm("¿Seguro que quieres reiniciar este mazo? Se borrará tu historial de repasos y todas volverán a ser tarjetas nuevas.")) {
+    localStorage.removeItem(`srs_${type}`);
+    loadNextCard(type);
+  }
 }
 
 // Lógica SuperMemo-2 Simplificada
