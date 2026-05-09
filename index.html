@@ -1122,12 +1122,15 @@ const dbWords = rawWords.split('\n').map(l => l.trim()).filter(l => l.includes('
 
 
 // ==========================================
-// LÓGICA SPACED REPETITION (SRS)
+// LÓGICA SPACED REPETITION (SRS) CON COOLDOWN
 // ==========================================
 
 let currentCard = { verb: null, word: null };
 let isFlipped = { verb: false, word: false };
-let lastCardId = { verb: null, word: null };
+
+// SISTEMA DE ENFRIAMIENTO: Recuerda las últimas 5 tarjetas vistas
+let recentCards = { verb: [], word: [] }; 
+const COOLDOWN_STEPS = 5; 
 
 function getProgress(type) {
   const data = localStorage.getItem(`srs_${type}`);
@@ -1141,7 +1144,7 @@ function saveProgress(type, data) {
 function resetProgress(type) {
   if(confirm("¿Seguro que quieres reiniciar este mazo? Se borrará tu historial de repasos y todas volverán a ser tarjetas nuevas.")) {
     localStorage.removeItem(`srs_${type}`);
-    lastCardId[type] = null; 
+    recentCards[type] = []; // Reiniciamos también la memoria de enfriamiento
     loadNextCard(type);
   }
 }
@@ -1175,6 +1178,7 @@ function loadNextCard(type) {
   let queueReview = [];
   let queueLearning = [];
 
+  // Clasificamos todas las tarjetas según su estado
   db.forEach(item => {
     const p = progress[item.id];
     if (!p) {
@@ -1190,12 +1194,13 @@ function loadNextCard(type) {
   document.getElementById(`${type}-stat-review`).innerText = queueReview.length;
 
   let nextItem = null;
-  const lastId = lastCardId[type];
 
-  const availLearn = queueLearning.filter(c => c.id !== lastId);
-  const availReview = queueReview.filter(c => c.id !== lastId);
-  const availNew = queueNew.filter(c => c.id !== lastId);
+  // FILTRO DE ENFRIAMIENTO: Excluimos las tarjetas que vimos recientemente
+  const availLearn = queueLearning.filter(c => !recentCards[type].includes(c.id));
+  const availReview = queueReview.filter(c => !recentCards[type].includes(c.id));
+  const availNew = queueNew.filter(c => !recentCards[type].includes(c.id));
 
+  // Prioridad 1: Aprender | Prioridad 2: Repasar | Prioridad 3: Nuevas
   if (availLearn.length > 0) {
     nextItem = availLearn[Math.floor(Math.random() * availLearn.length)];
   } else if (availReview.length > 0) {
@@ -1203,14 +1208,23 @@ function loadNextCard(type) {
   } else if (availNew.length > 0) {
     nextItem = availNew[Math.floor(Math.random() * availNew.length)];
   } else {
-    if (queueLearning.length > 0) nextItem = queueLearning[0];
-    else if (queueReview.length > 0) nextItem = queueReview[0];
-    else if (queueNew.length > 0) nextItem = queueNew[0];
+    // SALVAVIDAS: Si TODAS las tarjetas pendientes están en la memoria de enfriamiento 
+    // (por ejemplo, cuando solo te quedan 3 tarjetas en todo el mazo y fallaste las 3)
+    // Buscamos cuál fue la que viste hace MÁS tiempo dentro de esas recientes.
+    for (let i = 0; i < recentCards[type].length; i++) {
+        let id = recentCards[type][i];
+        let found = queueLearning.find(c => c.id === id) || queueReview.find(c => c.id === id) || queueNew.find(c => c.id === id);
+        if (found) {
+            nextItem = found;
+            break; // Rompemos el ciclo en la más antigua (índice 0)
+        }
+    }
   }
 
   const area = document.getElementById(`${type}-fc-area`);
   const emptyState = document.getElementById(`${type}-empty-state`);
 
+  // Si a pesar de todo no hay siguiente tarjeta, mostramos el mensaje de fin
   if (!nextItem) {
     area.style.display = 'none';
     emptyState.style.display = 'block';
@@ -1263,7 +1277,16 @@ function processAnswer(type, quality) {
   
   progress[cardId] = calculateNextInterval(currentP, quality);
   saveProgress(type, progress);
-  lastCardId[type] = cardId;
+  
+  // ACTUALIZAR MEMORIA RECIENTE (SISTEMA DE ENFRIAMIENTO)
+  // 1. Si la tarjeta ya estaba en la memoria, la sacamos de su posición anterior
+  recentCards[type] = recentCards[type].filter(id => id !== cardId); 
+  // 2. La añadimos al final (como la "vista más recientemente")
+  recentCards[type].push(cardId);
+  // 3. Si la memoria supera el límite de enfriamiento, olvidamos la más antigua
+  if (recentCards[type].length > COOLDOWN_STEPS) {
+    recentCards[type].shift();
+  }
   
   document.getElementById(`${type}-controls`).classList.remove('visible');
   setTimeout(() => {
