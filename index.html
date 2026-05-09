@@ -489,10 +489,9 @@
           </div>
         </div>
         <div class="card">
-          <div class="card-label">NúNúmeros clave</div>
+          <div class="card-label">Números clave</div>
           <div class="pills">
-            <span class="pill">eins <span class="sep">•</span> 1</span>
-            <span class="pill">zehn <span class="sep">•</span> 10</span>
+            <span class="pill">eins — zehn</span>
             <span class="pill">zwanzig <span class="sep">•</span> 20</span>
             <span class="pill">hundert <span class="sep">•</span> 100</span>
             <span class="pill">tausend <span class="sep">•</span> 1000</span>
@@ -1018,16 +1017,15 @@ function loadNextCard(type) {
   document.getElementById(`${type}-stat-learn`).innerText = queueLearning.length;
   document.getElementById(`${type}-stat-review`).innerText = queueReview.length;
 
-  // Lógica de Prioridad y Forzar Rotación (Para no mostrar la misma de inmediato)
+  // Lógica de Prioridad y Forzar Rotación
   let nextItem = null;
   const lastId = lastCardId[type];
 
-  // Filtramos la última tarjeta vista de las opciones posibles
+  // Filtramos la última tarjeta vista
   const availLearn = queueLearning.filter(c => c.id !== lastId);
   const availReview = queueReview.filter(c => c.id !== lastId);
   const availNew = queueNew.filter(c => c.id !== lastId);
 
-  // Elegimos la siguiente priorizando Aprender > Repasar > Nuevas (con selección aleatoria para mayor dinamismo)
   if (availLearn.length > 0) {
     nextItem = availLearn[Math.floor(Math.random() * availLearn.length)];
   } else if (availReview.length > 0) {
@@ -1035,7 +1033,6 @@ function loadNextCard(type) {
   } else if (availNew.length > 0) {
     nextItem = availNew[Math.floor(Math.random() * availNew.length)];
   } else {
-    // Si la ÚNICA tarjeta en todo el sistema es la que acabamos de fallar, no nos queda de otra que mostrarla.
     if (queueLearning.length > 0) nextItem = queueLearning[0];
     else if (queueReview.length > 0) nextItem = queueReview[0];
     else if (queueNew.length > 0) nextItem = queueNew[0];
@@ -1053,13 +1050,17 @@ function loadNextCard(type) {
   area.style.display = 'block';
   emptyState.style.display = 'none';
 
-  // Reset UI de la tarjeta actual
-  currentCard[type] = nextItem;
+  // OBTENER ELEMENTO TARJETA
+  const cardEl = document.getElementById(`${type}-card`);
+  
+  // APAGAR ANIMACIÓN TEMPORALMENTE PARA RESETEAR LA POSICIÓN AL INSTANTE
+  cardEl.style.transition = 'none';
+  cardEl.classList.remove('is-flipped');
   isFlipped[type] = false;
-  document.getElementById(`${type}-card`).classList.remove('is-flipped');
   document.getElementById(`${type}-controls`).classList.remove('visible');
 
-  // Rellenar datos según tipo
+  // Actualizar datos de la tarjeta
+  currentCard[type] = nextItem;
   if (type === 'verb') {
     document.getElementById('verb-front-inf').innerText = nextItem.inf;
     document.getElementById('verb-back-es').innerText = nextItem.es;
@@ -1069,6 +1070,11 @@ function loadNextCard(type) {
     document.getElementById('word-front-de').innerText = nextItem.de;
     document.getElementById('word-back-es').innerText = nextItem.es;
   }
+
+  // RESTAURAR ANIMACIÓN CSS (con un ligerísimo retraso para que el navegador aplique los cambios primero)
+  setTimeout(() => {
+    cardEl.style.transition = 'transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1)';
+  }, 50);
 }
 
 // Voltear Tarjeta
@@ -1094,14 +1100,10 @@ function processAnswer(type, quality) {
   
   // Calcular nuevo estado
   progress[cardId] = calculateNextInterval(currentP, quality);
-  
-  // Guardar datos
   saveProgress(type, progress);
-  
-  // Guardar en la memoria cuál fue esta tarjeta para no repetirla en el próximo turno
   lastCardId[type] = cardId;
   
-  // Pequeño timeout visual antes de cargar la siguiente
+  // Ocultar botones y cargar la siguiente instantáneamente con un leve retraso visual
   document.getElementById(`${type}-controls`).classList.remove('visible');
   setTimeout(() => {
     loadNextCard(type);
