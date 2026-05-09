@@ -489,7 +489,7 @@
           </div>
         </div>
         <div class="card">
-          <div class="card-label">Números clave</div>
+          <div class="card-label">NúNúmeros clave</div>
           <div class="pills">
             <span class="pill">eins <span class="sep">•</span> 1</span>
             <span class="pill">zehn <span class="sep">•</span> 10</span>
@@ -946,6 +946,7 @@ const dbWords = [
 // Variables de estado
 let currentCard = { verb: null, word: null };
 let isFlipped = { verb: false, word: false };
+let lastCardId = { verb: null, word: null }; // Memoria de la última tarjeta vista
 
 // Recuperar progreso del LocalStorage
 function getProgress(type) {
@@ -961,6 +962,7 @@ function saveProgress(type, data) {
 function resetProgress(type) {
   if(confirm("¿Seguro que quieres reiniciar este mazo? Se borrará tu historial de repasos y todas volverán a ser tarjetas nuevas.")) {
     localStorage.removeItem(`srs_${type}`);
+    lastCardId[type] = null; // Reiniciar la memoria de la última tarjeta
     loadNextCard(type);
   }
 }
@@ -1016,11 +1018,28 @@ function loadNextCard(type) {
   document.getElementById(`${type}-stat-learn`).innerText = queueLearning.length;
   document.getElementById(`${type}-stat-review`).innerText = queueReview.length;
 
-  // Seleccionar la próxima tarjeta (Prioridad: Aprender > Repasar > Nuevas)
+  // Lógica de Prioridad y Forzar Rotación (Para no mostrar la misma de inmediato)
   let nextItem = null;
-  if (queueLearning.length > 0) nextItem = queueLearning[0];
-  else if (queueReview.length > 0) nextItem = queueReview[0];
-  else if (queueNew.length > 0) nextItem = queueNew[0];
+  const lastId = lastCardId[type];
+
+  // Filtramos la última tarjeta vista de las opciones posibles
+  const availLearn = queueLearning.filter(c => c.id !== lastId);
+  const availReview = queueReview.filter(c => c.id !== lastId);
+  const availNew = queueNew.filter(c => c.id !== lastId);
+
+  // Elegimos la siguiente priorizando Aprender > Repasar > Nuevas (con selección aleatoria para mayor dinamismo)
+  if (availLearn.length > 0) {
+    nextItem = availLearn[Math.floor(Math.random() * availLearn.length)];
+  } else if (availReview.length > 0) {
+    nextItem = availReview[Math.floor(Math.random() * availReview.length)];
+  } else if (availNew.length > 0) {
+    nextItem = availNew[Math.floor(Math.random() * availNew.length)];
+  } else {
+    // Si la ÚNICA tarjeta en todo el sistema es la que acabamos de fallar, no nos queda de otra que mostrarla.
+    if (queueLearning.length > 0) nextItem = queueLearning[0];
+    else if (queueReview.length > 0) nextItem = queueReview[0];
+    else if (queueNew.length > 0) nextItem = queueNew[0];
+  }
 
   const area = document.getElementById(`${type}-fc-area`);
   const emptyState = document.getElementById(`${type}-empty-state`);
@@ -1076,8 +1095,11 @@ function processAnswer(type, quality) {
   // Calcular nuevo estado
   progress[cardId] = calculateNextInterval(currentP, quality);
   
-  // Guardar y cargar la siguiente
+  // Guardar datos
   saveProgress(type, progress);
+  
+  // Guardar en la memoria cuál fue esta tarjeta para no repetirla en el próximo turno
+  lastCardId[type] = cardId;
   
   // Pequeño timeout visual antes de cargar la siguiente
   document.getElementById(`${type}-controls`).classList.remove('visible');
